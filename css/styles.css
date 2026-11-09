@@ -4,7 +4,7 @@
   --bg: #f6f5f4; --surface: #ffffff; --surface-2: #faf9f8; --ink: #2f2d34; --ink-2: #514e58; --muted: #6a6670;
   --line: #e2dfe3; --line-2: #cbc7cf; --brand: #5b5963; --brand-dark: #45414c; --accent: #d14400; --accent-dark: #a83700; --accent-soft: #fff1e9;
   --short: #c23b12; --short-soft: #fdeee8; --ok: #2f6b55; --ok-soft: #eaf4ef; --warn: #8a5a00; --warn-soft: #fff6e0; --info: #3d5a80; --info-soft: #edf2f8;
-  --bar-pos: #7d8aa3; --radius: 10px; --shadow: 0 6px 22px rgba(52, 46, 40, .05);
+  --bar-pos: #4a74b0; --radius: 10px; --shadow: 0 6px 22px rgba(52, 46, 40, .05);
   --font: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 * { box-sizing: border-box; }
@@ -135,6 +135,34 @@ details.inline summary { cursor: pointer; color: var(--accent-dark); font-size: 
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin: 6px 0 10px; }
 .legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 
+/* 展示頁：產銷差異發散長條圖 */
+.show-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.show-head .filters { margin-bottom: 0; }
+.dv { --lab: 150px; --val: 86px; --gap: 12px; position: relative; padding-bottom: 4px; }
+.dv-row { display: grid; grid-template-columns: var(--lab) minmax(0, 1fr) var(--val); gap: var(--gap); align-items: center; min-height: 26px; position: relative; z-index: 1; border-radius: 6px; outline-offset: 0; }
+.dv-row[data-i] { cursor: default; }
+.dv-row[data-i]:hover, .dv-row[data-i]:focus-visible { background: rgba(91, 89, 99, .06); }
+.dv-label { font-size: 13px; font-weight: 600; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.dv-track { position: relative; height: 16px; }
+.dv-bar { position: absolute; top: 1px; height: 14px; min-width: 2px; }
+.dv-bar.neg { background: var(--short); border-radius: 4px 0 0 4px; }
+.dv-bar.pos { background: var(--bar-pos); border-radius: 0 4px 4px 0; }
+.dv-val { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: nowrap; }
+.dv-row.is-short .dv-val { color: var(--ink); font-weight: 700; }
+.dv-group { font-size: 12px; font-weight: 700; color: var(--muted); margin: 10px 0 2px calc(var(--lab) + var(--gap)); position: relative; z-index: 1; }
+.dv-axis { min-height: 20px; margin-bottom: 2px; }
+.dv-axis .dv-track span { position: absolute; transform: translateX(-50%); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dv-grid { position: absolute; top: 0; bottom: 0; left: calc(var(--lab) + var(--gap)); right: calc(var(--val) + var(--gap)); pointer-events: none; }
+.dv-grid i { position: absolute; top: 20px; bottom: 0; width: 1px; background: var(--line); }
+.dv-grid i.zero { background: var(--ink-2); width: 1.5px; }
+.dv-tip { position: absolute; z-index: 5; min-width: 200px; background: #2f2d34; color: #fff; border-radius: 8px; padding: 10px 12px; font-size: 12px; box-shadow: 0 10px 28px rgba(30, 26, 34, .25); pointer-events: none; }
+.dv-tip strong { display: block; font-size: 14px; }
+.dv-tip .muted { color: #cfcbd4; }
+.dv-tip dl { display: grid; grid-template-columns: auto auto; gap: 2px 14px; margin: 6px 0 0; }
+.dv-tip dt { color: #cfcbd4; }
+.dv-tip dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.show-table td:last-child, .show-table th:last-child { background-clip: padding-box; }
+
 /* 成本長條 */
 .share { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .share b { display: block; height: 8px; background: var(--brand); border-radius: 0 3px 3px 0; min-width: 1px; }
@@ -167,9 +195,15 @@ ol.steps li, ul.plain li { margin: 4px 0; }
   .main { padding: 18px 16px 32px; }
   .topbar h1 { font-size: 22px; }
   .kpi-value { font-size: 26px; }
+  .dv { --lab: 108px; --val: 64px; --gap: 8px; }
+  .dv-label, .dv-val { font-size: 12px; }
+  .dv-axis .dv-track span:not(.zero):not(.last) { display: none; }
 }
 @media print {
-  .sidebar, .actions, .filters, .foot { display: none !important; }
+  .sidebar, .actions, .filters, .foot, #showPrint, .banner, .dv-tip { display: none !important; }
+  body { background: #fff; }
+  .panel, .kpi { box-shadow: none; break-inside: avoid; }
+  .dv-bar, .legend i, .dv-grid i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .shell { display: block; }
   .table-wrap { max-height: none; overflow: visible; }
 }

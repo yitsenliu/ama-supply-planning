@@ -6,13 +6,13 @@
   const isNum = v => typeof v === 'number' && Number.isFinite(v);
   const n = v => isNum(v) ? nf.format(v) : '<span class="num-null">—</span>';
   const ntext = v => isNum(v) ? nf.format(v) : '—';
-  const PAGES = { overview: '總覽與會前重點', plan: '本月產銷', forecast: '次月預估', capacity: '產能排程', bom: 'BOM 齊套', erp: 'ERP 物料查詢', cost: '成本分析', logic: '資料邏輯／ERP 串接', sheets: '原始工作表' };
+  const PAGES = { show: '需求與庫存統計', overview: '總覽與會前重點', plan: '本月產銷', forecast: '次月預估', capacity: '產能排程', bom: 'BOM 齊套', erp: 'ERP 物料查詢', cost: '成本分析', logic: '資料邏輯／ERP 串接', sheets: '原始工作表' };
   const COLS = [
     ['demandExport', '國外需求'], ['demandDomestic', '國內需求'], ['totalDemand', '總需求'], ['salesWeek', '本週實銷'], ['salesTotal', '總實銷'],
     ['stockNorth', '北環倉'], ['stockSouth', '南環倉'], ['stockExport', '外銷倉'], ['stockTotal', '總庫存'],
     ['remainingDemand', '月需求餘量'], ['plannedProduction', '預計生產'], ['outsourced', '託外生產'], ['gap', '產銷差異']
   ];
-  const state = { data: null, source: 'encrypted', fileName: '', ui: { plan: {}, forecast: {}, bom: {}, erp: {}, cost: {}, sheets: {}, capacity: 'plan' } };
+  const state = { data: null, source: 'encrypted', fileName: '', ui: { show: { kind: 'plan', active: true, sort: 'sheet' }, plan: {}, forecast: {}, bom: {}, erp: {}, cost: {}, sheets: {}, capacity: 'plan' } };
 
   // ---------- 共用 ----------
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
@@ -82,8 +82,8 @@
   // ---------- 路由 ----------
   function route() {
     if (!state.data) return;
-    const page = (location.hash || '#overview').slice(1).split('?')[0];
-    const key = PAGES[page] ? page : 'overview';
+    const page = (location.hash || '#show').slice(1).split('?')[0];
+    const key = PAGES[page] ? page : 'show';
     document.querySelectorAll('#nav a').forEach(a => { const on = a.dataset.page === key; a.classList.toggle('is-active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     $('#pageTitle').textContent = PAGES[key];
     document.title = PAGES[key] + '｜AMA 產銷協調中心';
@@ -91,7 +91,7 @@
   }
   function render(key) {
     const view = $('#view');
-    try { view.innerHTML = ({ overview, plan: () => planPage('plan'), forecast: () => planPage('forecast'), capacity, bom, erp, cost, logic, sheets })[key](); }
+    try { view.innerHTML = ({ show: showPage, overview, plan: () => planPage('plan'), forecast: () => planPage('forecast'), capacity, bom, erp, cost, logic, sheets })[key](); }
     catch (e) { console.error(e); view.innerHTML = `<div class="panel"><h2>此頁無法顯示</h2><p class="panel-desc">${esc(e.message)}</p></div>`; }
     bind(key);
   }
@@ -173,6 +173,108 @@
     agendaItems().forEach((i, k) => lines.push(`${k + 1}. [${i.label}] ${i.text}${i.note ? '（' + i.note + '）' : ''}`));
     lines.push('', `資料來源：${d.source.file}；網站依 Excel 快取值整理，未連線 ERP。`);
     return lines.join('\n');
+  }
+
+  // ---------- 需求與庫存統計（展示頁） ----------
+  const SHOW_COLS = [
+    ['demandExport', '國外'], ['demandDomestic', '國內'], ['totalDemand', '總需求'], ['salesTotal', '總實銷'],
+    ['stockNorth', '北環倉'], ['stockSouth', '南環倉'], ['stockExport', '外銷倉'], ['stockTotal', '總庫存'],
+    ['remainingDemand', '月需求餘量'], ['plannedProduction', '預計生產'], ['outsourced', '託外生產'], ['gap', '產銷差異']
+  ];
+  function niceStep(span) {
+    const raw = span / 6 || 1; const p = 10 ** Math.floor(Math.log10(raw)); const m = raw / p;
+    return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+  }
+  const gapText = v => !isNum(v) ? '—' : v < 0 ? '缺 ' + nf.format(-v) : v > 0 ? '+' + nf.format(v) : '0';
+  function showPage() {
+    const ui = state.ui.show; const kind = state.data[ui.kind] ? ui.kind : 'plan'; const P = state.data[kind];
+    const seg = `<div class="seg" role="group" aria-label="資料期間"><button type="button" data-show-kind="plan" aria-pressed="${kind === 'plan'}">本月產銷表</button>${state.data.forecast ? `<button type="button" data-show-kind="forecast" aria-pressed="${kind === 'forecast'}">次月預估</button>` : ''}</div>`;
+    if (!P) return `<div class="panel"><h2>找不到「國工風扇產銷表」</h2></div>`;
+    const hasQty = s => SHOW_COLS.some(([k]) => isNum(s.values[k]) && s.values[k] !== 0);
+    const rows = P.skus.filter(s => (!ui.series || s.series === ui.series) && (!ui.active || hasQty(s)));
+    const chartRows = ui.sort === 'gap' ? [...rows].sort((a, b) => (a.values.gap || 0) - (b.values.gap || 0)) : rows;
+    state._showRows = chartRows;
+    const sum = k => rows.reduce((a, s) => a + (isNum(s.values[k]) ? s.values[k] : 0), 0);
+    const shorts = rows.filter(s => isNum(s.values.gap) && s.values.gap < 0);
+    const shortSum = shorts.reduce((a, s) => a - s.values.gap, 0);
+    const seriesOpts = [['', '全部系列'], ...[...new Set(P.skus.map(s => s.series))].map(s => [s, s])];
+    const dateWarn = kind === 'forecast' && state.data.issues.find(i => i.sheet === P.sheet && /日期/.test(i.text));
+
+    // 長條圖刻度：以 0 為中線，左負（缺）右正（有餘）
+    const gaps = chartRows.map(s => isNum(s.values.gap) ? s.values.gap : 0);
+    let lo = Math.min(0, ...gaps), hi = Math.max(0, ...gaps);
+    const step = niceStep(hi - lo || 1); lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step; if (hi === lo) hi = lo + step;
+    const pct = v => (v - lo) / (hi - lo) * 100; const z = pct(0);
+    const ticks = []; for (let v = lo; v <= hi + step / 2; v += step) ticks.push(Math.round(v * 100) / 100);
+    let bars = ''; let grp = '';
+    chartRows.forEach((s, i) => {
+      if (ui.sort !== 'gap') { const g = `${s.series}｜${s.type}`; if (g !== grp) { grp = g; bars += `<div class="dv-group">${esc(g)}</div>`; } }
+      const v = isNum(s.values.gap) ? s.values.gap : 0; const neg = v < 0;
+      const left = Math.min(pct(v), z), width = Math.abs(pct(v) - z);
+      bars += `<div class="dv-row${neg ? ' is-short' : ''}" tabindex="0" data-i="${i}" aria-label="${esc(s.spec)}，產銷差異 ${esc(gapText(s.values.gap))} 台">
+        <div class="dv-label">${esc(s.spec)}</div>
+        <div class="dv-track"><span class="dv-bar ${neg ? 'neg' : 'pos'}" style="left:${left}%;width:${width}%"></span></div>
+        <div class="dv-val">${esc(gapText(s.values.gap))}</div></div>`;
+    });
+
+    // 統計表
+    let body = ''; grp = '';
+    for (const s of rows) {
+      const g = `${s.series}｜${s.type}`;
+      if (g !== grp) { grp = g; body += `<tr class="group"><td colspan="${SHOW_COLS.length + 1}">${esc(g)}</td></tr>`; }
+      const v = s.values.gap; const short = isNum(v) && v < 0;
+      body += `<tr class="${short ? 'is-short' : ''}"><td class="l"><strong>${esc(s.spec)}</strong></td>${SHOW_COLS.map(([k]) => k === 'gap' ? `<td class="${short ? 'neg' : ''}"><strong>${esc(gapText(v))}</strong></td>` : `<td>${n(s.values[k])}</td>`).join('')}</tr>`;
+    }
+    const kpis = [
+      ['總需求', sum('totalDemand'), `國外 ${nf.format(sum('demandExport'))}・國內 ${nf.format(sum('demandDomestic'))}`],
+      ['總庫存', sum('stockTotal'), `北環倉 ${nf.format(sum('stockNorth'))}・南環倉 ${nf.format(sum('stockSouth'))}・外銷倉 ${nf.format(sum('stockExport'))}`],
+      ['月需求餘量', sum('remainingDemand'), `剩餘工天 ${ntext(P.remainingDays)}／工天數 ${ntext(P.workDays)}`],
+      ['缺貨型號', shorts.length, `缺口合計 ${nf.format(shortSum)} 台`, shorts.length > 0, '款']
+    ];
+    return `
+      <div class="show-head">
+        <div class="filters">
+          ${seg}
+          ${select('showSeries', '產品系列', seriesOpts, ui.series || '')}
+          ${select('showSort', '長條排序', [['sheet', '依原表順序'], ['gap', '依差異（缺最多在上）']], ui.sort || 'sheet')}
+          <label class="check"><input type="checkbox" id="showActive"${ui.active ? ' checked' : ''}> 只看有數量的型號</label>
+        </div>
+        <button class="btn btn-secondary" type="button" id="showPrint">列印／存成 PDF</button>
+      </div>
+      ${dateWarn ? `<p class="banner">${esc(dateWarn.text)}</p>` : ''}
+      <div class="grid-kpi">${kpis.map(([l, v, f, a, u]) => `<div class="kpi${a ? ' is-alert' : ''}"><div class="kpi-label">${esc(l)}</div><div class="kpi-value">${isNum(v) ? nf.format(v) : '—'}<small>${u || '台'}</small></div><div class="kpi-foot">${esc(f)}</div></div>`).join('')}</div>
+      <section class="panel" aria-labelledby="dvTitle">
+        <h2 id="dvTitle">各型號產銷差異｜${kind === 'plan' ? '本月' : '次月預估'}（表頭日期 ${fmtDate(P.date)}）</h2>
+        <p class="panel-desc">產銷差異 = 總庫存 + 預計生產 + 託外生產 − 月需求餘量。往左（橘紅）表示庫存不足、需要補貨或生產；往右（藍）表示有餘。單位：台。</p>
+        <div class="legend"><span><i style="background:var(--short)"></i>不足（缺）</span><span><i style="background:var(--bar-pos)"></i>有餘（+）</span><span>滑過或點選長條可看明細</span></div>
+        <div class="dv" id="dvChart">
+          <div class="dv-row dv-axis" aria-hidden="true"><div class="dv-label"></div><div class="dv-track">${ticks.map((t, i) => `<span class="${t === 0 ? 'zero' : i === ticks.length - 1 ? 'last' : ''}" style="left:${pct(t)}%">${nf.format(t)}</span>`).join('')}</div><div class="dv-val"></div></div>
+          <div class="dv-grid" aria-hidden="true">${ticks.map(t => `<i class="${t === 0 ? 'zero' : ''}" style="left:${pct(t)}%"></i>`).join('')}</div>
+          ${bars || '<p class="muted">沒有符合條件的型號。</p>'}
+          <div class="dv-tip" id="dvTip" role="status" hidden></div>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>需求與庫存統計表</h2>
+        <p class="panel-desc">資料來自「${esc(P.sheet)}」，數值為 Excel 存檔時的計算結果。顯示 ${rows.length}／${P.skus.length} 款。</p>
+        <div class="table-wrap"><table class="t show-table">
+          <thead><tr><th class="l">型號／規格</th>${SHOW_COLS.map(([, l]) => `<th>${esc(l)}</th>`).join('')}</tr></thead>
+          <tbody>${body || `<tr><td class="l" colspan="${SHOW_COLS.length + 1}">沒有符合條件的型號。</td></tr>`}</tbody>
+          <tfoot><tr><td class="l">合計</td>${SHOW_COLS.map(([k]) => `<td>${k === 'gap' ? esc(gapText(sum(k))) : nf.format(sum(k))}</td>`).join('')}</tr></tfoot>
+        </table></div>
+      </section>`;
+  }
+  function showTip(row) {
+    const s = state._showRows && state._showRows[row.dataset.i]; const tip = $('#dvTip'); const chart = $('#dvChart');
+    if (!s || !tip) return; const v = s.values;
+    tip.innerHTML = `<strong>${esc(s.spec)}</strong><span class="muted">${esc(s.series)}｜${esc(s.type)}</span>
+      <dl><dt>總需求</dt><dd>${ntext(v.totalDemand)}</dd><dt>月需求餘量</dt><dd>${ntext(v.remainingDemand)}</dd><dt>總庫存</dt><dd>${ntext(v.stockTotal)}</dd>
+      <dt>預計生產</dt><dd>${ntext(v.plannedProduction)}</dd><dt>託外生產</dt><dd>${ntext(v.outsourced)}</dd><dt>產銷差異</dt><dd><b>${esc(gapText(v.gap))}</b></dd></dl>`;
+    tip.hidden = false;
+    const r = row.getBoundingClientRect(), c = chart.getBoundingClientRect();
+    const track = row.querySelector('.dv-track').getBoundingClientRect();
+    tip.style.top = (r.bottom - c.top + 4) + 'px';
+    tip.style.left = Math.max(0, Math.min(track.left - c.left, c.width - tip.offsetWidth)) + 'px';
   }
 
   // ---------- 本月產銷／次月預估 ----------
@@ -395,6 +497,23 @@
   function bind(key) {
     const re = () => render(key);
     const on = (id, ev, fn) => { const el = $('#' + id); if (el) el.addEventListener(ev, fn); };
+    if (key === 'show') {
+      const ui = state.ui.show; const chart = $('#dvChart'); const tip = $('#dvTip');
+      document.querySelectorAll('[data-show-kind]').forEach(b => b.addEventListener('click', () => { ui.kind = b.dataset.showKind; re(); }));
+      on('showSeries', 'change', e => { ui.series = e.target.value; re(); });
+      on('showSort', 'change', e => { ui.sort = e.target.value; re(); });
+      on('showActive', 'change', e => { ui.active = e.target.checked; re(); });
+      on('showPrint', 'click', () => window.print());
+      if (chart) {
+        const hit = e => e.target.closest && e.target.closest('.dv-row[data-i]');
+        chart.addEventListener('mouseover', e => { const r = hit(e); if (r) showTip(r); });
+        chart.addEventListener('focusin', e => { const r = hit(e); if (r) showTip(r); });
+        chart.addEventListener('click', e => { const r = hit(e); if (r) showTip(r); });
+        chart.addEventListener('mouseleave', () => { tip.hidden = true; });
+        chart.addEventListener('focusout', e => { if (!chart.contains(e.relatedTarget)) tip.hidden = true; });
+        chart.addEventListener('keydown', e => { if (e.key === 'Escape') tip.hidden = true; });
+      }
+    }
     if (key === 'overview') on('copyAgenda', 'click', async () => { try { await navigator.clipboard.writeText(agendaText()); toast('已複製會前摘要'); } catch { download('會前摘要.txt', agendaText(), 'text/plain'); } });
     if (key === 'plan' || key === 'forecast') {
       const ui = state.ui[key];
