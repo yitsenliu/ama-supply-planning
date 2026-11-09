@@ -1,0 +1,14 @@
+{
+  "name": "ama-supply-planning-gh",
+  "private": true,
+  "version": "1.0.0",
+  "description": "AMA 國際精工產銷協調看板（GitHub Pages 靜態版）",
+  "type": "module",
+  "scripts": {
+    "build:data": "node scripts/build-data.mjs",
+    "check": "node scripts/check.mjs"
+  },
+  "devDependencies": {
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  }
+}

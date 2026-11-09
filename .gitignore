@@ -1,0 +1,7 @@
+node_modules/
+*.xlsx
+*.xls
+.env
+.env.*
+.site-password
+.DS_Store

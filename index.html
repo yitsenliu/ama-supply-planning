@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="theme-color" content="#5b5963">
+  <title>產銷協調中心｜AMA 國際精工</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/crypto.js" defer></script>
+  <script src="js/parser.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳至主要內容</a>
+
+  <!-- 解鎖畫面 -->
+  <section id="gate" class="gate" aria-labelledby="gateTitle">
+    <div class="gate-card">
+      <img class="gate-logo" src="assets/ama-tech-logo.png" alt="Ama Tech For ESG 國際精工股份有限公司">
+      <h1 id="gateTitle">產銷協調中心</h1>
+      <p class="gate-lead">資料已加密。請輸入密碼開啟，或直接選擇最新的產銷 Excel，在本機瀏覽器解析（檔案不會上傳）。</p>
+      <form id="gateForm" class="gate-form" autocomplete="off">
+        <label for="gatePassword">存取密碼</label>
+        <div class="gate-row">
+          <input id="gatePassword" type="password" inputmode="text" autocomplete="current-password" required>
+          <button class="btn btn-primary" type="submit" id="gateSubmit">開啟</button>
+        </div>
+        <p id="gateMsg" class="gate-msg" role="status" aria-live="polite"></p>
+      </form>
+      <div class="gate-or"><span>或</span></div>
+      <button class="btn btn-secondary btn-block" type="button" data-action="pick-excel">選擇 Excel 檔在本機解析</button>
+      <p class="gate-foot">公開網址只存放密文；解密在你的瀏覽器內完成。</p>
+    </div>
+  </section>
+
+  <div id="app" class="shell" hidden>
+    <aside class="sidebar" aria-label="主導覽">
+      <div class="brand"><span class="brand-box"><img src="assets/ama-tech-logo.png" alt="Ama Tech 國際精工"></span><span class="brand-sub">SALES &amp; OPERATIONS</span></div>
+      <nav id="nav" class="nav" aria-label="頁面">
+        <a href="#overview" data-page="overview">總覽與會前重點</a>
+        <a href="#plan" data-page="plan">本月產銷</a>
+        <a href="#forecast" data-page="forecast">次月預估</a>
+        <a href="#capacity" data-page="capacity">產能排程</a>
+        <a href="#bom" data-page="bom">BOM 齊套</a>
+        <a href="#erp" data-page="erp">ERP 物料查詢</a>
+        <a href="#cost" data-page="cost">成本分析</a>
+        <a href="#logic" data-page="logic">資料邏輯／ERP 串接</a>
+        <a href="#sheets" data-page="sheets">原始工作表</a>
+      </nav>
+      <div class="sidebar-foot" id="sourceFoot"></div>
+    </aside>
+
+    <main id="main" class="main" tabindex="-1">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">AMA TECH · 產銷採購協調</p>
+          <h1 id="pageTitle">總覽與會前重點</h1>
+          <p class="sub" id="sourceLine"></p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary" type="button" data-action="pick-excel">匯入新 Excel</button>
+          <button class="btn btn-secondary" type="button" data-action="download-json">下載解析 JSON</button>
+          <button class="btn btn-quiet" type="button" data-action="lock">鎖定</button>
+        </div>
+      </header>
+      <div id="banner" class="banner" role="status" aria-live="polite" hidden></div>
+      <div id="view" class="view"></div>
+      <footer class="foot">AMA 國際精工・產銷協調中心（GitHub Pages 靜態版）・資料以來源 Excel 快取值為準，網站不重算 ERP。</footer>
+    </main>
+  </div>
+
+  <input type="file" id="excelFile" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
